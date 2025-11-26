@@ -1,0 +1,17 @@
+{
+  "name": "kiosk-agent",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.7",
+    "dotenv": "^16.4.0",
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "node-machine-id": "^1.1.12",
+    "pdf-to-printer": "^5.2.0"
+  }
+}
