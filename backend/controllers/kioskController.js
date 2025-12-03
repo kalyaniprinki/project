@@ -182,17 +182,43 @@ exports.getPrinterStatus = async (req, res) => {
 
 
 // --------- 3️⃣ SEND PRINT TO KIOSK AGENT --------------------
+
+
+const PrintJob = require("../models/PrintJob"); // make sure this is imported
+const axios = require("axios");
+
 exports.sendPrint = async (req, res) => {
   try {
     const { kioskId } = req.params;
-    const { fileUrl, pages, copies } = req.body;
+    const { fileId, fileUrl, pages, copies } = req.body;
 
+    // 1️⃣ Find the kiosk
     const kiosk = await Kiosk.findOne({ kioskId });
     if (!kiosk || !kiosk.agentUrl)
       return res.status(404).json({ message: "Kiosk agent offline" });
 
+    let pdfUrl = fileUrl;
+
+    // 2️⃣ If fileId is provided, fetch PrintJob and use its fileUrl
+    if (!pdfUrl && fileId) {
+      const printJob = await PrintJob.findById(fileId);
+      if (!printJob) return res.status(404).json({ message: "Print job not found" });
+
+      pdfUrl = printJob.fileUrl; // this should be a publicly accessible URL
+      // optional: default pages/copies from job if not provided
+      if (!pages) pages = printJob.pages || "all";
+      if (!copies) copies = printJob.copies || 1;
+
+      // Update job status to "printing"
+      printJob.status = "printing";
+      await printJob.save();
+    }
+
+    if (!pdfUrl) return res.status(400).json({ message: "File URL not available" });
+
+    // 3️⃣ Send print command to kiosk agent
     const agentRes = await axios.post(`${kiosk.agentUrl}/print`, {
-      fileUrl,
+      fileUrl: pdfUrl,
       pages,
       copies,
     });
@@ -200,7 +226,30 @@ exports.sendPrint = async (req, res) => {
     res.json({ message: "Print command sent", agentResponse: agentRes.data });
 
   } catch (err) {
-    console.log(err);
-    res.status(500).json({ message: "Failed to send print job" });
+    console.error("Failed to send print job:", err);
+    res.status(500).json({ message: "Failed to send print job", error: err.message });
   }
 };
+
+// exports.sendPrint = async (req, res) => {
+//   try {
+//     const { kioskId } = req.params;
+//     const { fileUrl, pages, copies } = req.body;
+
+//     const kiosk = await Kiosk.findOne({ kioskId });
+//     if (!kiosk || !kiosk.agentUrl)
+//       return res.status(404).json({ message: "Kiosk agent offline" });
+
+//     const agentRes = await axios.post(`${kiosk.agentUrl}/print`, {
+//       fileUrl,
+//       pages,
+//       copies,
+//     });
+
+//     res.json({ message: "Print command sent", agentResponse: agentRes.data });
+
+//   } catch (err) {
+//     console.log(err);
+//     res.status(500).json({ message: "Failed to send print job" });
+//   }
+// };
